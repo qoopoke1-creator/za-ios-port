@@ -1,0 +1,70 @@
+name: Apple toolchain probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-toolchain-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Inspect architecture and SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          uname -m
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --sdk iphoneos --find metal
+          df -h "$RUNNER_TEMP"
+          sysctl -n hw.memsize
+      - name: Compile a standalone iOS Metal library
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          cat > probe.metal <<'METAL'
+          #include <metal_stdlib>
+          using namespace metal;
+          kernel void fill(device uint *out [[buffer(0)]], uint tid [[thread_position_in_grid]]) {
+              out[tid] = tid + 1;
+          }
+          METAL
+          xcrun --sdk iphoneos metal -c probe.metal -o probe.air
+          xcrun --sdk iphoneos metallib probe.air -o probe.metallib
+          test -s probe.metallib
+          shasum -a 256 probe.metallib
+      - name: Probe available macOS Metal device
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          cat > device.swift <<'SWIFT'
+          import Metal
+          if let device = MTLCreateSystemDefaultDevice() {
+              print("Metal device: \(device.name)")
+              guard let queue = device.makeCommandQueue(), let command = queue.makeCommandBuffer() else {
+                  fatalError("Metal command allocation failed")
+              }
+              command.commit()
+              command.waitUntilCompleted()
+              guard command.status == .completed else { fatalError("Metal submission failed") }
+              print("Empty Metal command completed; compute readback is not tested.")
+          } else {
+              print("No Metal device; offline compilation and GPU execution are separate capabilities.")
+          }
+          SWIFT
+          xcrun swiftc device.swift -framework Metal -o device-probe
+          ./device-probe
+      - name: Summarize scope
+        shell: bash
+        run: |
+          echo 'Toolchain probe only: no game input, keys, signing, IPA or device test.' >> "$GITHUB_STEP_SUMMARY"
