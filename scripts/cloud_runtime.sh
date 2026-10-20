@@ -22,6 +22,11 @@ GD="$W/input/profile/$GAME"
 # Startup probe uses the exact generated chain header from the IPA build.
 cp "$W/input/dmsh_chain.h" "$GD/dmsh_chain.h"
 make -C dm/host GAME="$GAME" > "$W/result/host-build.log" 2>&1
+python3 - "$W/input/runtime.entitlements" <<'PY'
+import plistlib,sys
+with open(sys.argv[1],'wb') as f:
+ plistlib.dump({'com.apple.security.cs.allow-jit': True, 'com.apple.security.cs.allow-unsigned-executable-memory': True},f)
+PY
 codesign --force --sign - --entitlements "$W/input/runtime.entitlements" dm/host/dmhost > "$W/result/sign.log" 2>&1
 export DM_ROOT="$W" DM_ROMFS="$W/input/RomFS" DM_SAVE="$W/save" DM_TEMP="$W/temp"
 export DM_MSL_DIR="$W/msl" DM_NVN_SHMAP="$GD/shader_map.tsv" DM_FONT_DIR='/System/Library/Fonts/Supplemental'
