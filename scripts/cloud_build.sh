@@ -30,6 +30,12 @@ mkdir -p "$ROMFS/arc"
 # Build-time marker only; the real RomFS is merged locally after compilation.
 touch "$ROMFS/arc/data.trpfs"
 report 'Recording actual toolchain and generating chain header'
+# Invoke the locked DLL via the installed runtime instead of the upstream apphost.
+cat > "$ROOT/dm/gfx/tools/dmsh_xlate_bin/dmsh_xlate" <<'SH'
+#!/bin/bash
+exec dotnet "$(dirname "$0")/dmsh_xlate.dll" "$@"
+SH
+chmod +x "$ROOT/dm/gfx/tools/dmsh_xlate_bin/dmsh_xlate"
 python3 dm/gfx/tools/dmsh_chain.py --update-lock > "$W/result/chain.log" 2>&1
 python3 dm/gfx/tools/dmsh_chain.py --header >> "$W/result/chain.log" 2>&1
 cp "$GD/dmsh_chain.h" "$W/result/"
