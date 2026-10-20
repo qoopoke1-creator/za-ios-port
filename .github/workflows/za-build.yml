@@ -1,6 +1,14 @@
 name: Experimental Z-A build
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Build IPA or run startup probe
+        type: choice
+        default: build
+        options:
+          - build
+          - runtime
 permissions:
   contents: read
 concurrency:
@@ -37,4 +45,10 @@ jobs:
           BRIDGE_URL: ${{ secrets.ZA_BRIDGE_URL }}
           BRIDGE_TOKEN: ${{ secrets.ZA_BRIDGE_TOKEN }}
           INPUT_SHA256: ${{ secrets.ZA_INPUT_SHA256 }}
-        run: bash scripts/cloud_build.sh
+          RUN_MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$RUN_MODE" = runtime ]; then
+            bash scripts/cloud_runtime.sh
+          else
+            bash scripts/cloud_build.sh
+          fi
