@@ -20,7 +20,7 @@ jobs:
           df -h "$RUNNER_TEMP"
           brew install xcodegen zstd spirv-cross
           python3 -m venv "$RUNNER_TEMP/za-venv"
-          "$RUNNER_TEMP/za-venv/bin/pip" install lz4 capstone fonttools backports.zstd
+          "$RUNNER_TEMP/za-venv/bin/pip" install lz4 capstone fonttools "backports.zstd; python_version < '3.14'"
           echo "$RUNNER_TEMP/za-venv/bin" >> "$GITHUB_PATH"
           if ! dotnet --list-sdks | grep -q '^10\.'; then
             curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
