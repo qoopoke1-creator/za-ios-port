@@ -1,0 +1,35 @@
+name: Z-A upstream IPA build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: za-official
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install Apple build dependencies
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          df -h "$RUNNER_TEMP"
+          brew install xcodegen zstd spirv-cross
+          python3 -m venv "$RUNNER_TEMP/za-venv"
+          "$RUNNER_TEMP/za-venv/bin/pip" install lz4 capstone fonttools backports.zstd
+          echo "$RUNNER_TEMP/za-venv/bin" >> "$GITHUB_PATH"
+          if ! dotnet --list-sdks | grep -q '^10\.'; then
+            curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+            bash "$RUNNER_TEMP/dotnet-install.sh" --channel 10.0 --install-dir "$RUNNER_TEMP/dotnet"
+            echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
+          fi
+      - name: Build and privately return unsigned application
+        env:
+          BRIDGE_URL: ${{ secrets.ZA_BRIDGE_URL }}
+          BRIDGE_TOKEN: ${{ secrets.ZA_BRIDGE_TOKEN }}
+          INPUT_SHA256: ${{ secrets.ZA_INPUT_SHA256 }}
+        run: bash scripts/za_official_cloud.sh
